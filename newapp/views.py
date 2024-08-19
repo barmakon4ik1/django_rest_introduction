@@ -1,24 +1,56 @@
 from django.db.models import Avg
+from django_filters import filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status, generics
 from .models import Book
 from .serializers import *
 from rest_framework.views import APIView
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination, CursorPagination
 from rest_framework.generics import GenericAPIView, ListAPIView
-from .serializers import BookSerializer
 from rest_framework.generics import ListCreateAPIView
-from .models import Book
-from .serializers import BookSerializer
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.exceptions import NotFound
+from rest_framework.generics import ListAPIView
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
+
+# Различные виды пагинаций:
+# class BookPagination(PageNumberPagination): # Использование класса пагинации 1 способ
+#     page_size = 3 # Количество элементов на странице
+#     page_size_query_param = 'page_size'
+#     max_page_size = 100
+
+# class BookListView(ListAPIView): # Использование класса пагинации 2 способ
+#     queryset = Book.objects.all()
+#     serializer_class = BookSerializer
+#     pagination_class = LimitOffsetPagination # Использование класса  пагинации
+
+
+""" CursorPagination — это один из типов пагинации в Django REST Framework ՄDRFՅ,
+который обеспечивает стабильную и безопасную навигацию по страницам данных. В
+отличие от других методов пагинации, CursorPagination использует курсоры для
+определения положения в наборе данных, что особенно полезно при работе с
+динамически изменяющимися данными."""
+
+
+class BookCursorPagination(CursorPagination):
+    page_size = 3
+    ordering = 'published_date' # Поле для курсора
 
 
 # Представление для списка и создания объектов
-class BookListCreateView(ListCreateAPIView):
+class BookListCreateView(ListAPIView):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+    # pagination_class = BookPagination # Использование класса пагинации 1 способ
+    # pagination_class = LimitOffsetPagination # Использование класса пагинации 2 способ
+    pagination_class = BookCursorPagination  # Использование класса пагинации CursorPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['author', 'publisher', 'is_bestseller'] # Поля для фильтрации
+    search_fields = ['title', 'author'] # Поля для поиска
+    ordering_fields = ['published_date', 'price'] # Поля для сортировки
 
     # Добавление кастомной логики перед сохранением
     def create(self, request, *args, **kwargs):
