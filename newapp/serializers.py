@@ -2,7 +2,6 @@ from django.utils import timezone
 from rest_framework import serializers
 from .models import Book, Publisher  # Импортируйте вашу модель
 from .validators import validate_title_length
-
 from .models import Genre
 
 
@@ -33,8 +32,8 @@ class BookListSerializer(serializers.ModelSerializer):
 
 
 class BookSerializer(serializers.ModelSerializer):
-    publisher = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all())
-    genres = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), many=True)
+    # publisher = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all())
+    # genres = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), many=True)
 
     class Meta:
         model = Book

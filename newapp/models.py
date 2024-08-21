@@ -1,5 +1,7 @@
 from django.db import models
 
+from newapp.managers import SoftDeleteManager
+
 
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -36,3 +38,16 @@ class Book(models.Model):
     is_bestseller = models.BooleanField(default=False)
     genres = models.ManyToManyField(Genre, related_name='books')
     is_banned = models.BooleanField(default=False) # Поле, указывающее на запрещенную книгу
+    is_deleted = models.BooleanField(default=False) # Поле для мягкого удаления
+
+    objects = SoftDeleteManager()
+
+    # Мягкое удаление (soft deletion) — это подход, при котором записи не удаляются
+    # физически из базы данных, а помечаются как удаленные. Это позволяет
+    # восстанавливать удаленные записи и сохранять историю данных. Мягкое удаление
+    # полезно в приложениях, где важно сохранять данные для аудита, исторических
+    # записей или восстановления.
+
+    def delete(self, *args, **kwargs):
+        self.is_deleted = True
+        self.save()

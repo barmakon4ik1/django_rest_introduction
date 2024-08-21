@@ -27,6 +27,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# REST_FRAMEWORK = {
+#     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+#     'PAGE_SIZE': 3,  # Размер страницы по умолчанию
+# }
+
 
 # Application definition
 
@@ -37,10 +42,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'tasks.apps.TasksConfig',
-    'projects.apps.ProjectsConfig',
+    # 'tasks.apps.TasksConfig',
+    # 'projects.apps.ProjectsConfig',
     'django_filters',
     'rest_framework',
+    'newapp.apps.NewappConfig',
 ]
 
 MIDDLEWARE = [
