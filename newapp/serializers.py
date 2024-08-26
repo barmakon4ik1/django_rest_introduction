@@ -1,5 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.authtoken.admin import User
+
 from .models import Book, Publisher  # Импортируйте вашу модель
 from .validators import validate_title_length
 from .models import Genre
@@ -50,8 +52,6 @@ class BookSerializer(serializers.ModelSerializer):
 
     # http://127.0.0.1:8000/books/?include_related=true
 
-
-
     # def validate_price(self, value):
     #     if value < 1:
     #         raise serializers.ValidationError("Price must be at least 1.")
@@ -77,5 +77,17 @@ class BookSerializer(serializers.ModelSerializer):
     #     return super().update(instance, validated_data)
 
 
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
 
+    class Meta:
+        model = User
+        fields = ['username', 'password', 'email']
 
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', '')
+        )
+        return user

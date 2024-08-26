@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,6 +31,37 @@ ALLOWED_HOSTS = []
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 3,  # Размер страницы по умолчанию
+
+    # BasicAuthentication
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'rest_framework.authentication.BasicAuthentication'
+    # ],
+    #
+
+    # TokenAuthentication
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'rest_framework.authentication.TokenAuthentication',
+    #     # другие методы аутентификации (если есть)
+    # ],
+
+    # Simple JWT
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # другие методы аутентификации (если есть)
+        ],
+
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
+
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 # Application definition
@@ -44,6 +76,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'newapp.apps.NewappConfig',
     'django_filters',
+    'rest_framework.authtoken', # Добавить это приложение - TokenAuthentication
+    'rest_framework_simplejwt', # Simple JWT
 ]
 
 MIDDLEWARE = [
@@ -54,6 +88,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'newapp.middleware.JWTAuthenticationMiddleware',
 ]
 
 ROOT_URLCONF = 'django_rest_introduction.urls'
