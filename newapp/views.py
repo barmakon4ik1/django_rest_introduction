@@ -1,17 +1,18 @@
 from datetime import datetime
-
 from django.contrib.auth import authenticate
 from django.db.models import Avg
 from django_filters import filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.authentication import BasicAuthentication, TokenAuthentication
 from rest_framework.decorators import api_view, action
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly, \
+    DjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Book
+from .permissions import *
 from .serializers import *
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination, CursorPagination
@@ -60,6 +61,9 @@ def books_by_date_view(request, year, month, day):
 class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
+    permission_classes = [DjangoModelPermissions, CanGetStatisticPermission]
+    # класс DjangoModelPermissions используется для проверки
+    # стандартных разрешений (view, add, change, delete) на уровне модели Book
 
     @action(detail=False, methods=['get'])
     def statistic(self, request):
@@ -75,9 +79,21 @@ class GenreViewSet(viewsets.ModelViewSet):
         return Response(data)
 
 
+class UserBookListView(ListAPIView):
+    serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Book.objects.filter(owner=self.request.user)  # извлечение текущего аутентифицированного пользователя
+
+
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 # Представление для списка и создания объектов
@@ -124,56 +140,61 @@ class BookViewSet(viewsets.ModelViewSet):
 #         return Response(serializer.data)
 #
 #
+
+
 # # Представление для получения, обновления и удаления конкретного объекта
-# class BookDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
-#     queryset = Book.objects.all()
-#     serializer_class = BookSerializer
-#
-#     # Переопределение метода для добавления кастомной логики - создали доп поле is_discounted
-#     def retrieve(self, request, *args, **kwargs):
-#         response = super().retrieve(request, *args, **kwargs)
-#
-#     # Добавление поля к ответу, проверяющего, что цена со скидкой меньше цены
-#         if response.data.get('discounted_price') is not None and response.data.get('price') is not None:
-#             response.data['is_discounted'] = response.data['discounted_price'] < response.data['price']
-#         else:
-#             response.data['is_discounted'] = False
-#         return response
-#
-#     # Добавление кастомной проверки перед обновлением
-#     def update(self, request, *args, **kwargs):
-#         partial = kwargs.pop('partial', False) # обновить все или часть объекта
-#         instance = self.get_object()
-#         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-#         serializer.is_valid(raise_exception=True)
-#
-#         # Пример проверки: цена книги не должна быть ниже минимальной
-#         if serializer.validated_data.get('price', instance.price) < 5.00:
-#             return Response({'error': 'Price cannot be less than 5.00'}, status=status.HTTP_400_BAD_REQUEST)
-#
-#         self.perform_update(serializer)
-#         return Response(serializer.data)
-#
-#     # Добавление кастомной логики при удалении объекта
-#     def destroy(self, request, *args, **kwargs):
-#         instance = self.get_object()
-#
-#         self.perform_destroy(instance)
-#     # Пример кастомной логики: логирование успешного удаления
-#         print(f"Book deleted: {instance}")
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-#
-#     # Переопределение метода, добавление записи, которая не показывается пользователю
-#     def get_object(self):
-#         # Получение параметра pk из URL
-#         pk = self.kwargs.get('pk')
-#         # Попытка найти объект по pk, исключая запрещенные
-#         try:
-#             book = self.queryset.get(pk=pk, is_banned=False)
-#         except Book.DoesNotExist:
-#             # Обработка ошибки, если объект не найден или запрещен
-#             raise NotFound(detail=f"Book with id '{pk}' not found or is banned.")
-#         return book
+class BookDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated & IsAdminOrOwner & IsOwnerOrReadOnly, IsWorkHour]
+
+    # Переопределение метода для добавления кастомной логики - создали доп поле is_discounted
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+
+        # Добавление поля к ответу, проверяющего, что цена со скидкой меньше цены
+        if response.data.get('discounted_price') is not None and response.data.get('price') is not None:
+            response.data['is_discounted'] = response.data['discounted_price'] < response.data['price']
+        else:
+            response.data['is_discounted'] = False
+        return response
+
+    # Добавление кастомной проверки перед обновлением
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)  # обновить все или часть объекта
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        # Пример проверки: цена книги не должна быть ниже минимальной
+        if serializer.validated_data.get('price', instance.price) < 5.00:
+            return Response({'error': 'Price cannot be less than 5.00'}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    # Добавление кастомной логики при удалении объекта
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        self.perform_destroy(instance)
+        # Пример кастомной логики: логирование успешного удаления
+        print(f"Book deleted: {instance}")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # # Переопределение метода, добавление записи, которая не показывается пользователю
+    # def get_object(self):
+    #     # Получение параметра pk из URL
+    #     pk = self.kwargs.get('pk')
+    #     # Попытка найти объект по pk, исключая запрещенные
+    #     try:
+    #         book = self.queryset.get(pk=pk, is_banned=False)
+    #     except Book.DoesNotExist:
+    #         # Обработка ошибки, если объект не найден или запрещен
+    #         raise NotFound(detail=f"Book with id '{pk}' not found or is banned.")
+    #     return book
+
+
 #
 #
 # class GenreListCreateView(ListCreateAPIView):
@@ -383,8 +404,8 @@ class RegisterView(APIView):
             user = serializer.save()
             response = Response({
                 'user': {
-                'username': user.username,
-                'email': user.email
+                    'username': user.username,
+                    'email': user.email
                 }
             }, status=status.HTTP_201_CREATED)
             set_jwt_cookies(response, user)
@@ -422,6 +443,3 @@ class ReadOnlyOrAuthenticatedView(APIView):
 
     def post(self, request):
         return Response({"message": "Data created by authenticated user!"})
-
-
-
